@@ -8,7 +8,12 @@ export default defineConfig({
     VitePWA({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.svg', 'icon-192.png', 'icon-512.png'],
+      // Emit the manifest as manifest.json (not .webmanifest) — .json is served
+      // with a content-type every browser accepts, which fixes hosts/devices
+      // that reject a mis-typed .webmanifest and report "no manifest".
+      manifestFilename: 'manifest.json',
       manifest: {
+        id: '/',
         name: 'xn — notes',
         short_name: 'xn',
         description: 'Personal offline markdown notes',
@@ -16,10 +21,11 @@ export default defineConfig({
         background_color: '#09100d',
         display: 'standalone',
         start_url: '/',
+        scope: '/',
         icons: [
-          { src: 'icon-192.png', sizes: '192x192', type: 'image/png' },
-          { src: 'icon-512.png', sizes: '512x512', type: 'image/png' },
-          { src: 'icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
+          { src: '/icon-192.png', sizes: '192x192', type: 'image/png', purpose: 'any' },
+          { src: '/icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'any' },
+          { src: '/icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
         ],
       },
       workbox: {
