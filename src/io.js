@@ -83,7 +83,7 @@ export async function exportAllJson() {
     notes,
   }
   download(
-    `xn-notes-backup-${stamp()}.json`,
+    `tty-notes-backup-${stamp()}.json`,
     JSON.stringify(payload, null, 2),
     'application/json',
   )
@@ -95,7 +95,7 @@ export async function exportAllMarkdown() {
   const body = notes
     .map((n) => noteToMarkdown({ ...n, content: `# ${n.title || 'Untitled'}\n\n${n.content || ''}` }))
     .join('\n\n---\n\n')
-  download(`xn-notes-${stamp()}.md`, body, 'text/markdown')
+  download(`tty-notes-${stamp()}.md`, body, 'text/markdown')
   return notes.length
 }
 

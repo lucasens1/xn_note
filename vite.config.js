@@ -14,8 +14,8 @@ export default defineConfig({
       manifestFilename: 'manifest.json',
       manifest: {
         id: '/',
-        name: 'xn — notes',
-        short_name: 'xn',
+        name: 'tty — notes',
+        short_name: 'tty',
         description: 'Personal offline markdown notes',
         theme_color: '#060d09',
         background_color: '#09100d',

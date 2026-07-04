@@ -4,15 +4,15 @@
 // Scope: drive.file (non-sensitive) — the app can only see/manage files it
 // created, so no Google app-verification is required for personal use.
 //
-// Layout in Drive (folder "xn notes"):
-//   xn-notes-backup.json   full notebook, overwritten each backup (used to Restore)
+// Layout in Drive (folder "tty notes"):
+//   tty-notes-backup.json  full notebook, overwritten each backup (used to Restore)
 //   <slug>.md              one readable Markdown file per note (push-only mirror)
 import { noteToMarkdown } from './io'
 
 const GIS_SRC = 'https://accounts.google.com/gsi/client'
 const SCOPE = 'https://www.googleapis.com/auth/drive.file'
-const FOLDER = 'xn notes'
-const BACKUP = 'xn-notes-backup.json'
+const FOLDER = 'tty notes'
+const BACKUP = 'tty-notes-backup.json'
 const MAP_KEY = 'xn_gdrive_filemap'
 const LAST_KEY = 'xn_gdrive_last_backup'
 const ID_KEY = 'xn_gdrive_client_id'
@@ -235,7 +235,7 @@ export async function backupToDrive(notes, onProgress) {
 // Reads the JSON backup and returns the notes array (authoritative for restore).
 export async function restoreFromDrive() {
   const folderId = await findFolder(FOLDER)
-  if (!folderId) throw new Error('No "xn notes" folder found in Drive yet.')
+  if (!folderId) throw new Error('No "tty notes" folder found in Drive yet.')
   const jsonFile = await findFile(BACKUP, folderId)
   if (!jsonFile) throw new Error('No backup file found in Drive yet.')
   const t = await token()

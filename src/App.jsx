@@ -415,7 +415,7 @@ export default function App() {
         <div className="brand-row">
           <div className="brand">
             <span className="logo">✳</span>
-            <span className="brand-name">xn</span>
+            <span className="brand-name">tty</span>
             <span className="brand-sub">notes</span>
             <span className="brand-cursor" />
           </div>
@@ -763,7 +763,7 @@ export default function App() {
             </button>
             <div className="ph-inner">
               <div className="ph-logo">✳</div>
-              <h1>xn — notes</h1>
+              <h1>tty — notes</h1>
               <p>
                 Select a note, or press <span className="kbd">⌘K</span> to search.
               </p>

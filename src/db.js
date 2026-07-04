@@ -25,13 +25,13 @@ db.version(2)
 db.on('populate', () => {
   const now = Date.now()
   db.notes.add({
-    title: 'Welcome to xn',
+    title: 'Welcome to tty',
     folder: 'Getting started',
     tags: ['welcome', 'markdown'],
     createdAt: now,
     updatedAt: now,
     content: [
-      '# Welcome to xn 👋',
+      '# Welcome to tty 👋',
       '',
       'A tiny **offline** markdown notebook. Everything lives in your browser',
       '(IndexedDB) — no server, no account, works in airplane mode.',

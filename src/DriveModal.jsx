@@ -126,8 +126,8 @@ export default function DriveModal({ open, onClose, notes, online, flash, onRest
           <div className="drive-status">
             Last backup: <b>{ago(last)}</b>
             {' · '}
-            Stores <code>xn-notes-backup.json</code> + one <code>.md</code> per note
-            in a <b>“xn notes”</b> folder.
+            Stores <code>tty-notes-backup.json</code> + one <code>.md</code> per note
+            in a <b>“tty notes”</b> folder.
           </div>
 
           {error && <div className="drive-error">{error}</div>}
