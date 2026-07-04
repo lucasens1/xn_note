@@ -9,8 +9,10 @@ import {
   exportAllMarkdown,
   exportNoteMd,
   importFiles,
+  shareNote,
 } from './io'
 import CommandPalette from './CommandPalette'
+import DriveModal from './DriveModal'
 import SlashMenu from './SlashMenu'
 import { filterSlash } from './slashCommands'
 import { getCaretCoordinates } from './caret'
@@ -53,6 +55,10 @@ export default function App() {
   const [toast, setToast] = useState('')
   const [installEvt, setInstallEvt] = useState(null)
   const [slash, setSlash] = useState(null) // { query, start, index, coords }
+  const [driveOpen, setDriveOpen] = useState(false)
+  const [online, setOnline] = useState(
+    typeof navigator === 'undefined' ? true : navigator.onLine,
+  )
 
   const saveTimer = useRef(null)
   const toastTimer = useRef(null)
@@ -234,6 +240,17 @@ export default function App() {
     setView((v) => VIEWS[(VIEWS.indexOf(v) + 1) % VIEWS.length])
   }
 
+  async function handleShare(note) {
+    if (!note) return
+    if (!online) {
+      flash('Offline — connect to share')
+      return
+    }
+    const r = await shareNote(note)
+    if (r === 'shared') flash('Shared ✓')
+    else if (r === 'downloaded') flash('Saved .md → send it with Blip')
+  }
+
   async function doImport(e) {
     const files = e.target.files
     if (files?.length) {
@@ -249,6 +266,18 @@ export default function App() {
     await installEvt.userChoice
     setInstallEvt(null)
   }
+
+  // Track connectivity so we can gate online-only actions (Share, Drive).
+  useEffect(() => {
+    const on = () => setOnline(true)
+    const off = () => setOnline(false)
+    window.addEventListener('online', on)
+    window.addEventListener('offline', off)
+    return () => {
+      window.removeEventListener('online', on)
+      window.removeEventListener('offline', off)
+    }
+  }, [])
 
   // Capture the Android/Chrome install prompt for a one-tap Install button.
   useEffect(() => {
@@ -297,6 +326,10 @@ export default function App() {
       run: () => fileRef.current?.click(),
     },
     {
+      label: 'Google Drive — back up / restore…',
+      run: () => setDriveOpen(true),
+    },
+    {
       label: 'Export all — JSON backup',
       run: async () => flash(`Exported ${await exportAllJson()} notes`),
     },
@@ -306,6 +339,10 @@ export default function App() {
     },
     ...(selected
       ? [
+          {
+            label: 'Share note (Blip / share sheet)',
+            run: () => handleShare(selected),
+          },
           {
             label: 'Export this note — .md',
             run: () => exportNoteMd(selected),
@@ -437,6 +474,23 @@ export default function App() {
                   </button>
                 ))}
               </div>
+              {!online && (
+                <span className="offline-pill" title="No connection">
+                  ⦿ offline
+                </span>
+              )}
+              <button
+                className="icon-btn share-btn"
+                onClick={() => handleShare(selected)}
+                disabled={!online}
+                title={
+                  online
+                    ? 'Share / Send with Blip'
+                    : 'Offline — connect to share'
+                }
+              >
+                ↗
+              </button>
               <div className="menu-wrap">
                 <button
                   className="icon-btn"
@@ -456,6 +510,23 @@ export default function App() {
                         }}
                       >
                         Command palette <span className="kbd">⌘K</span>
+                      </button>
+                      <button
+                        disabled={!online}
+                        onClick={() => {
+                          setMenuOpen(false)
+                          handleShare(selected)
+                        }}
+                      >
+                        Share / send with Blip…
+                      </button>
+                      <button
+                        onClick={() => {
+                          setMenuOpen(false)
+                          setDriveOpen(true)
+                        }}
+                      >
+                        Google Drive — back up / restore…
                       </button>
                       <button
                         onClick={() => {
@@ -612,6 +683,15 @@ export default function App() {
         notes={notes}
         actions={paletteActions}
         onOpenNote={openNote}
+      />
+
+      <DriveModal
+        open={driveOpen}
+        onClose={() => setDriveOpen(false)}
+        notes={notes}
+        online={online}
+        flash={flash}
+        onRestored={() => {}}
       />
 
       {toast && <div className="toast">{toast}</div>}

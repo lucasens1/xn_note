@@ -42,6 +42,38 @@ export function exportNoteMd(note) {
   download(`${slug(note.title)}.md`, noteToMarkdown(note), 'text/markdown')
 }
 
+// Share a note through the OS share sheet (Web Share API). On phones this lists
+// Blip (and AirDrop, Messages, …) directly; on macOS it opens the native share
+// sheet. Falls back to saving a .md file when file-sharing isn't available —
+// on a Mac you then send it with Blip via Finder → Services → Blip, or by
+// dragging it into Blip's menu-bar window.
+export async function shareNote(note) {
+  const md = noteToMarkdown(note)
+  const filename = `${slug(note.title)}.md`
+  const title = note.title || 'Note'
+  const file = new File([md], filename, { type: 'text/markdown' })
+
+  if (navigator.canShare && navigator.canShare({ files: [file] })) {
+    try {
+      await navigator.share({ files: [file], title })
+      return 'shared'
+    } catch (e) {
+      if (e?.name === 'AbortError') return 'cancelled'
+    }
+  } else if (navigator.share) {
+    try {
+      await navigator.share({ title, text: md })
+      return 'shared'
+    } catch (e) {
+      if (e?.name === 'AbortError') return 'cancelled'
+    }
+  }
+  // Desktop fallback (e.g. Chrome on macOS): drop the file on disk so it can be
+  // handed to Blip.
+  exportNoteMd(note)
+  return 'downloaded'
+}
+
 export async function exportAllJson() {
   const notes = await db.notes.toArray()
   const payload = {
@@ -88,6 +120,25 @@ function parseFrontmatter(text) {
     }
   })
   return { meta, body: text.slice(m[0].length) }
+}
+
+// Add an array of note objects to the DB (used by Drive restore and JSON
+// import). Notes are ADDED with fresh ids, never overwriting existing ones.
+export async function importNotes(notes) {
+  let count = 0
+  const now = Date.now()
+  for (const n of notes) {
+    await db.notes.add({
+      title: n.title || 'Untitled',
+      content: n.content || '',
+      folder: n.folder || '',
+      tags: Array.isArray(n.tags) ? n.tags : [],
+      createdAt: n.createdAt || now,
+      updatedAt: n.updatedAt || now,
+    })
+    count++
+  }
+  return count
 }
 
 // Accepts .json backups (full metadata) and .md/.markdown/.txt files (one note
