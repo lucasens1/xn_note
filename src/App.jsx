@@ -16,9 +16,25 @@ import DriveModal from './DriveModal'
 import SlashMenu from './SlashMenu'
 import { filterSlash } from './slashCommands'
 import { getCaretCoordinates } from './caret'
+import {
+  PencilSquareIcon,
+  ViewColumnsIcon,
+  EyeIcon,
+  ArrowDownTrayIcon,
+  ShareIcon,
+  Bars3Icon,
+  EllipsisHorizontalIcon,
+  XMarkIcon,
+  FolderPlusIcon,
+} from '@heroicons/react/24/outline'
 import './App.css'
 
 const VIEWS = ['edit', 'split', 'preview']
+const VIEW_ICONS = {
+  edit: PencilSquareIcon,
+  split: ViewColumnsIcon,
+  preview: EyeIcon,
+}
 
 function snippet(md) {
   return (md || '')
@@ -59,6 +75,17 @@ export default function App() {
   const [online, setOnline] = useState(
     typeof navigator === 'undefined' ? true : navigator.onLine,
   )
+  // Folders the user created explicitly — kept even while they contain no notes
+  // yet (notes-derived folders alone can't represent an empty folder).
+  const [customFolders, setCustomFolders] = useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem('xn_folders') || '[]')
+    } catch {
+      return []
+    }
+  })
+  const [newFolderOpen, setNewFolderOpen] = useState(false)
+  const [newFolderName, setNewFolderName] = useState('')
 
   const saveTimer = useRef(null)
   const toastTimer = useRef(null)
@@ -75,8 +102,9 @@ export default function App() {
   const folders = useMemo(() => {
     const set = new Set()
     notes.forEach((n) => n.folder && set.add(n.folder))
+    customFolders.forEach((f) => f && set.add(f))
     return ['All', ...Array.from(set).sort()]
-  }, [notes])
+  }, [notes, customFolders])
 
   const allTags = useMemo(() => {
     const set = new Set()
@@ -208,6 +236,19 @@ export default function App() {
     edit({ tags: draft.tags.filter((x) => x !== t) })
   }
 
+  function addFolder(raw) {
+    const name = (raw || '').trim()
+    setNewFolderName('')
+    setNewFolderOpen(false)
+    if (!name || name === 'All') return
+    if (!customFolders.includes(name) && !folders.includes(name)) {
+      const next = [...customFolders, name]
+      setCustomFolders(next)
+      localStorage.setItem('xn_folders', JSON.stringify(next))
+    }
+    setFolderFilter(name) // select it so the next new note lands here
+  }
+
   function toggleTagFilter(t) {
     setActiveTags((cur) =>
       cur.includes(t) ? cur.filter((x) => x !== t) : [...cur, t],
@@ -322,6 +363,13 @@ export default function App() {
   const paletteActions = [
     { label: 'New note', shortcut: '⌘N', run: handleNew },
     {
+      label: 'New folder…',
+      run: () => {
+        setSidebarOpen(true)
+        setNewFolderOpen(true)
+      },
+    },
+    {
       label: 'Import file (.md / .json)…',
       run: () => fileRef.current?.click(),
     },
@@ -366,13 +414,26 @@ export default function App() {
       <aside className={'sidebar' + (sidebarOpen ? ' open' : '')}>
         <div className="brand-row">
           <div className="brand">
-            <span className="logo">✳</span> xn
+            <span className="logo">✳</span>
+            <span className="brand-name">xn</span>
+            <span className="brand-sub">notes</span>
+            <span className="brand-cursor" />
           </div>
-          {installEvt && (
-            <button className="install-btn" onClick={triggerInstall}>
-              ⬇ Install
+          <div className="brand-actions">
+            {installEvt && (
+              <button className="install-btn" onClick={triggerInstall}>
+                <ArrowDownTrayIcon className="ic" />
+                Install
+              </button>
+            )}
+            <button
+              className="sidebar-close"
+              onClick={() => setSidebarOpen(false)}
+              title="Close"
+            >
+              <XMarkIcon className="ic" />
             </button>
-          )}
+          </div>
         </div>
 
         <button className="new-btn" onClick={handleNew}>
@@ -387,29 +448,67 @@ export default function App() {
           onChange={(e) => setSearch(e.target.value)}
         />
 
-        <div className="folders">
-          {folders.map((f) => (
+        <div className="section">
+          <div className="section-head">
+            <span className="section-label">Folders</span>
             <button
-              key={f}
-              className={'folder' + (folderFilter === f ? ' active' : '')}
-              onClick={() => setFolderFilter(f)}
+              className="section-add"
+              onClick={() => setNewFolderOpen(true)}
+              title="New folder"
             >
-              {f === 'All' ? '🗂 All' : '📁 ' + f}
+              <FolderPlusIcon className="fic" />
             </button>
-          ))}
+          </div>
+          <div className="folders">
+            {folders.map((f) => (
+              <button
+                key={f}
+                className={'folder' + (folderFilter === f ? ' active' : '')}
+                onClick={() => setFolderFilter(f)}
+              >
+                {f === 'All' ? '🗂 All' : '📁 ' + f}
+              </button>
+            ))}
+            {newFolderOpen && (
+              <input
+                className="folder-new-input"
+                autoFocus
+                placeholder="folder name…"
+                value={newFolderName}
+                onChange={(e) => setNewFolderName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') addFolder(newFolderName)
+                  else if (e.key === 'Escape') {
+                    setNewFolderOpen(false)
+                    setNewFolderName('')
+                  }
+                }}
+                onBlur={() =>
+                  newFolderName.trim()
+                    ? addFolder(newFolderName)
+                    : setNewFolderOpen(false)
+                }
+              />
+            )}
+          </div>
         </div>
 
         {allTags.length > 0 && (
-          <div className="tag-filters">
-            {allTags.map((t) => (
-              <button
-                key={t}
-                className={'tagchip' + (activeTags.includes(t) ? ' active' : '')}
-                onClick={() => toggleTagFilter(t)}
-              >
-                #{t}
-              </button>
-            ))}
+          <div className="section">
+            <div className="section-head">
+              <span className="section-label">Tags</span>
+            </div>
+            <div className="tag-filters">
+              {allTags.map((t) => (
+                <button
+                  key={t}
+                  className={'tagchip' + (activeTags.includes(t) ? ' active' : '')}
+                  onClick={() => toggleTagFilter(t)}
+                >
+                  #{t}
+                </button>
+              ))}
+            </div>
           </div>
         )}
 
@@ -435,9 +534,17 @@ export default function App() {
               <div className="item-meta">
                 {n.folder && <span className="tag">{n.folder}</span>}
                 {(n.tags || []).slice(0, 3).map((t) => (
-                  <span key={t} className="tag hash">
+                  <button
+                    key={t}
+                    className={'tag hash' + (activeTags.includes(t) ? ' on' : '')}
+                    title={`Filter by #${t}`}
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      toggleTagFilter(t)
+                    }}
+                  >
                     #{t}
-                  </span>
+                  </button>
                 ))}
                 <span className="ago">{timeAgo(n.updatedAt)}</span>
               </div>
@@ -455,7 +562,7 @@ export default function App() {
                 onClick={() => setSidebarOpen((v) => !v)}
                 title="Notes"
               >
-                ☰
+                <Bars3Icon className="ic" />
               </button>
               <input
                 className="title-input"
@@ -464,15 +571,20 @@ export default function App() {
                 onChange={(e) => edit({ title: e.target.value })}
               />
               <div className="view-switch">
-                {VIEWS.map((v) => (
-                  <button
-                    key={v}
-                    className={view === v ? 'active' : ''}
-                    onClick={() => setView(v)}
-                  >
-                    {v}
-                  </button>
-                ))}
+                {VIEWS.map((v) => {
+                  const Icon = VIEW_ICONS[v]
+                  return (
+                    <button
+                      key={v}
+                      className={view === v ? 'active' : ''}
+                      onClick={() => setView(v)}
+                      title={v}
+                    >
+                      <Icon className="vs-ic" />
+                      <span className="vs-label">{v}</span>
+                    </button>
+                  )
+                })}
               </div>
               {!online && (
                 <span className="offline-pill" title="No connection">
@@ -489,7 +601,7 @@ export default function App() {
                     : 'Offline — connect to share'
                 }
               >
-                ↗
+                <ShareIcon className="ic" />
               </button>
               <div className="menu-wrap">
                 <button
@@ -497,7 +609,7 @@ export default function App() {
                   onClick={() => setMenuOpen((v) => !v)}
                   title="More"
                 >
-                  ⋯
+                  <EllipsisHorizontalIcon className="ic" />
                 </button>
                 {menuOpen && (
                   <>
@@ -647,7 +759,7 @@ export default function App() {
               className="hamburger floating"
               onClick={() => setSidebarOpen((v) => !v)}
             >
-              ☰
+              <Bars3Icon className="ic" />
             </button>
             <div className="ph-inner">
               <div className="ph-logo">✳</div>
