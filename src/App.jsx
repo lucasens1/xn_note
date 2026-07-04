@@ -11,6 +11,9 @@ import {
   importFiles,
 } from './io'
 import CommandPalette from './CommandPalette'
+import SlashMenu from './SlashMenu'
+import { filterSlash } from './slashCommands'
+import { getCaretCoordinates } from './caret'
 import './App.css'
 
 const VIEWS = ['edit', 'split', 'preview']
@@ -49,11 +52,13 @@ export default function App() {
   const [paletteOpen, setPaletteOpen] = useState(false)
   const [toast, setToast] = useState('')
   const [installEvt, setInstallEvt] = useState(null)
+  const [slash, setSlash] = useState(null) // { query, start, index, coords }
 
   const saveTimer = useRef(null)
   const toastTimer = useRef(null)
   const searchRef = useRef(null)
   const fileRef = useRef(null)
+  const editorRef = useRef(null)
 
   function flash(msg) {
     setToast(msg)
@@ -119,6 +124,72 @@ export default function App() {
         })
       }
     }, 300)
+  }
+
+  // ---- Notion-style "/" block menu -------------------------------------
+  function updateSlash(ta) {
+    const pos = ta.selectionStart
+    const before = ta.value.slice(0, pos)
+    const m = before.match(/(^|\s)\/(\w*)$/)
+    if (!m) {
+      setSlash(null)
+      return
+    }
+    const query = m[2]
+    if (filterSlash(query).length === 0) {
+      setSlash(null)
+      return
+    }
+    const start = pos - query.length - 1
+    const isMobile = window.matchMedia('(max-width: 760px)').matches
+    let coords = null
+    if (!isMobile) {
+      const c = getCaretCoordinates(ta, start)
+      const rect = ta.getBoundingClientRect()
+      let top = rect.top + c.top - ta.scrollTop + c.height + 6
+      let left = rect.left + c.left - ta.scrollLeft
+      if (left + 300 > window.innerWidth) left = window.innerWidth - 312
+      if (top + 340 > window.innerHeight) {
+        top = rect.top + c.top - ta.scrollTop - 340
+      }
+      coords = { top: Math.max(8, top), left: Math.max(8, left) }
+    }
+    setSlash({ query, start, index: 0, coords })
+  }
+
+  function selectSlash(cmd) {
+    const ta = editorRef.current
+    if (!ta || !slash) return
+    const start = slash.start
+    const end = ta.selectionStart
+    const content = draft.content
+    const next = content.slice(0, start) + cmd.insert + content.slice(end)
+    edit({ content: next })
+    setSlash(null)
+    const caretPos = start + cmd.caret
+    const selEnd = caretPos + (cmd.selLen || 0)
+    requestAnimationFrame(() => {
+      ta.focus()
+      ta.setSelectionRange(caretPos, selEnd)
+    })
+  }
+
+  function onEditorKeyDown(e) {
+    if (!slash) return
+    const items = filterSlash(slash.query)
+    if (e.key === 'ArrowDown') {
+      e.preventDefault()
+      setSlash((s) => ({ ...s, index: (s.index + 1) % items.length }))
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault()
+      setSlash((s) => ({ ...s, index: (s.index - 1 + items.length) % items.length }))
+    } else if (e.key === 'Enter' || e.key === 'Tab') {
+      e.preventDefault()
+      selectSlash(items[Math.min(slash.index, items.length - 1)])
+    } else if (e.key === 'Escape') {
+      e.preventDefault()
+      setSlash(null)
+    }
   }
 
   function addTag(raw) {
@@ -473,11 +544,18 @@ export default function App() {
             <section className={'editor view-' + view}>
               {view !== 'preview' && (
                 <textarea
+                  ref={editorRef}
                   className="md-input"
                   value={draft.content}
-                  placeholder="Write markdown…"
+                  placeholder="Write markdown…  (type / for blocks)"
                   spellCheck={false}
-                  onChange={(e) => edit({ content: e.target.value })}
+                  onChange={(e) => {
+                    edit({ content: e.target.value })
+                    updateSlash(e.target)
+                  }}
+                  onKeyDown={onEditorKeyDown}
+                  onClick={(e) => updateSlash(e.target)}
+                  onBlur={() => setTimeout(() => setSlash(null), 150)}
                 />
               )}
               {view !== 'edit' && (
@@ -516,6 +594,16 @@ export default function App() {
 
       {sidebarOpen && (
         <div className="scrim" onClick={() => setSidebarOpen(false)} />
+      )}
+
+      {slash && (
+        <SlashMenu
+          items={filterSlash(slash.query)}
+          index={slash.index}
+          coords={slash.coords}
+          onHover={(i) => setSlash((s) => ({ ...s, index: i }))}
+          onSelect={selectSlash}
+        />
       )}
 
       <CommandPalette
