@@ -4,6 +4,8 @@ import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import rehypeHighlight from 'rehype-highlight'
 import { db, createNote, updateNote, deleteNote } from './db'
+import { parseReminder, reminderLabel, countReminders } from './reminders'
+import rehypeReminders from './rehypeReminders'
 import {
   exportAllJson,
   exportAllMarkdown,
@@ -26,6 +28,8 @@ import {
   EllipsisHorizontalIcon,
   XMarkIcon,
   FolderPlusIcon,
+  SunIcon,
+  MoonIcon,
 } from '@heroicons/react/24/outline'
 import './App.css'
 
@@ -75,6 +79,15 @@ export default function App() {
   const [online, setOnline] = useState(
     typeof navigator === 'undefined' ? true : navigator.onLine,
   )
+  const [theme, setTheme] = useState(() => {
+    const saved = localStorage.getItem('xn_theme')
+    if (saved === 'light' || saved === 'dark') return saved
+    return window.matchMedia?.('(prefers-color-scheme: light)').matches
+      ? 'light'
+      : 'dark'
+  })
+  const [tip, setTip] = useState(null) // custom tooltip: { text, x, y, below }
+  const reminderTimers = useRef([])
   // Folders the user created explicitly — kept even while they contain no notes
   // yet (notes-derived folders alone can't represent an empty folder).
   const [customFolders, setCustomFolders] = useState(() => {
@@ -127,6 +140,9 @@ export default function App() {
   }, [notes, search, folderFilter, activeTags])
 
   const selected = notes.find((n) => n.id === selectedId) || null
+  const draftReminder = selected
+    ? parseReminder(`${draft.title}\n${draft.content}`)
+    : null
 
   useEffect(() => {
     if (selected) {
@@ -150,12 +166,29 @@ export default function App() {
     if (saveTimer.current) clearTimeout(saveTimer.current)
     saveTimer.current = setTimeout(() => {
       if (id != null) {
-        updateNote(id, {
+        const rem = parseReminder(`${next.title}\n${next.content}`)
+        const remindAt = rem?.remindAt ?? null
+        const prev = notes.find((n) => n.id === id)?.remindAt ?? null
+        const changes = {
           title: next.title.trim() || 'Untitled',
           content: next.content,
           folder: next.folder.trim(),
           tags: next.tags,
-        })
+          remindAt,
+        }
+        if (remindAt !== prev) changes.remindedAt = null // new time can fire
+        updateNote(id, changes)
+        // Ask for notification permission the first time a reminder is set.
+        if (
+          remindAt &&
+          !prev &&
+          typeof Notification !== 'undefined' &&
+          Notification.permission === 'default'
+        ) {
+          Notification.requestPermission().then((p) => {
+            if (p === 'granted') flash('Reminders on ⏰')
+          })
+        }
       }
     }, 300)
   }
@@ -175,19 +208,19 @@ export default function App() {
       return
     }
     const start = pos - query.length - 1
-    const isMobile = window.matchMedia('(max-width: 760px)').matches
-    let coords = null
-    if (!isMobile) {
-      const c = getCaretCoordinates(ta, start)
-      const rect = ta.getBoundingClientRect()
-      let top = rect.top + c.top - ta.scrollTop + c.height + 6
-      let left = rect.left + c.left - ta.scrollLeft
-      if (left + 300 > window.innerWidth) left = window.innerWidth - 312
-      if (top + 340 > window.innerHeight) {
-        top = rect.top + c.top - ta.scrollTop - 340
-      }
-      coords = { top: Math.max(8, top), left: Math.max(8, left) }
-    }
+    // Anchor the menu to the caret row on every device (desktop + mobile).
+    // Use the visual viewport so the on-screen keyboard is accounted for.
+    const vw = window.visualViewport?.width ?? window.innerWidth
+    const vh = window.visualViewport?.height ?? window.innerHeight
+    const menuW = Math.min(300, vw - 16)
+    const c = getCaretCoordinates(ta, start)
+    const rect = ta.getBoundingClientRect()
+    let top = rect.top + c.top - ta.scrollTop + c.height + 6
+    let left = rect.left + c.left - ta.scrollLeft
+    if (left + menuW > vw - 8) left = vw - menuW - 8
+    // Flip above the caret line if it would overflow the visible viewport.
+    if (top + 300 > vh) top = rect.top + c.top - ta.scrollTop - 300
+    const coords = { top: Math.max(8, top), left: Math.max(8, left), width: menuW }
     setSlash({ query, start, index: 0, coords })
   }
 
@@ -308,6 +341,85 @@ export default function App() {
     setInstallEvt(null)
   }
 
+  // Apply + persist the theme.
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme)
+    localStorage.setItem('xn_theme', theme)
+  }, [theme])
+
+  // Custom tooltip via event delegation — works for dynamically-rendered
+  // elements (e.g. preview tokens) and isn't clipped by scroll containers.
+  useEffect(() => {
+    function onOver(e) {
+      const el = e.target.closest?.('[data-tip]')
+      if (!el) return
+      const r = el.getBoundingClientRect()
+      const below = r.top < 56
+      setTip({
+        text: el.getAttribute('data-tip'),
+        x: r.left + r.width / 2,
+        y: below ? r.bottom : r.top,
+        below,
+      })
+    }
+    function onOut(e) {
+      if (e.target.closest?.('[data-tip]')) setTip(null)
+    }
+    document.addEventListener('mouseover', onOver)
+    document.addEventListener('mouseout', onOut)
+    return () => {
+      document.removeEventListener('mouseover', onOver)
+      document.removeEventListener('mouseout', onOut)
+    }
+  }, [])
+
+  // ---- Reminders (fire while the app is open; surface due ones on reopen) ----
+  async function fireReminder(id) {
+    const n = await db.notes.get(id)
+    if (!n || !n.remindAt) return
+    if (n.remindedAt && n.remindedAt >= n.remindAt) return // already fired
+    if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+      const body = snippet(n.content) || 'Reminder'
+      try {
+        const reg = await navigator.serviceWorker?.ready
+        if (reg?.showNotification) {
+          await reg.showNotification('⏰ ' + (n.title || 'Reminder'), {
+            body,
+            tag: 'rem-' + id,
+            renotify: true,
+          })
+        } else {
+          new Notification('⏰ ' + (n.title || 'Reminder'), { body })
+        }
+      } catch {
+        /* notification failed — still mark as handled below */
+      }
+    }
+    await db.notes.update(id, { remindedAt: Date.now() }) // no updatedAt bump
+  }
+
+  useEffect(() => {
+    reminderTimers.current.forEach(clearTimeout)
+    reminderTimers.current = []
+    const now = Date.now()
+    notes.forEach((n) => {
+      if (!n.remindAt) return
+      if (n.remindedAt && n.remindedAt >= n.remindAt) return
+      if (n.remindAt <= now) {
+        fireReminder(n.id) // due (or missed while closed) → fire on open
+      } else if (n.remindAt - now <= 24 * 60 * 60 * 1000) {
+        reminderTimers.current.push(
+          setTimeout(() => fireReminder(n.id), n.remindAt - now),
+        )
+      }
+    })
+    return () => {
+      reminderTimers.current.forEach(clearTimeout)
+      reminderTimers.current = []
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [notes])
+
   // Track connectivity so we can gate online-only actions (Share, Drive).
   useEffect(() => {
     const on = () => setOnline(true)
@@ -426,6 +538,17 @@ export default function App() {
                 Install
               </button>
             )}
+            <button
+              className="icon-btn theme-btn"
+              onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+              title={theme === 'dark' ? 'Light mode' : 'Dark mode'}
+            >
+              {theme === 'dark' ? (
+                <SunIcon className="ic" />
+              ) : (
+                <MoonIcon className="ic" />
+              )}
+            </button>
             <button
               className="sidebar-close"
               onClick={() => setSidebarOpen(false)}
@@ -546,6 +669,14 @@ export default function App() {
                     #{t}
                   </button>
                 ))}
+                {n.remindAt && (!n.remindedAt || n.remindedAt < n.remindAt) && (
+                  <span
+                    className="rem-chip"
+                    data-tip={`Reminder at ${reminderLabel(n.remindAt)} (your timezone)`}
+                  >
+                    ⏰ {reminderLabel(n.remindAt)}
+                  </span>
+                )}
                 <span className="ago">{timeAgo(n.updatedAt)}</span>
               </div>
             </div>
@@ -722,6 +853,29 @@ export default function App() {
                   ))}
                 </datalist>
               </div>
+              {draftReminder &&
+                (() => {
+                  const extra =
+                    countReminders(`${draft.title}\n${draft.content}`) - 1
+                  return (
+                    <span
+                      className="rem-chip meta"
+                      data-tip={
+                        `Notifies at ${draftReminder.label} in your timezone, while the app is open.` +
+                        (extra > 0
+                          ? ` Only this first @time is used — ${extra} other${
+                              extra > 1 ? 's' : ''
+                            } ignored.`
+                          : ' Type @time in the note to set it.')
+                      }
+                    >
+                      ⏰ {draftReminder.label}
+                      {extra > 0 && (
+                        <span className="rem-extra"> · +{extra} ignored</span>
+                      )}
+                    </span>
+                  )
+                })()}
             </div>
 
             <section className={'editor view-' + view}>
@@ -730,7 +884,7 @@ export default function App() {
                   ref={editorRef}
                   className="md-input"
                   value={draft.content}
-                  placeholder="Write markdown…  (type / for blocks)"
+                  placeholder="Write markdown…   /  blocks  ·  @8:30pm  reminder"
                   spellCheck={false}
                   onChange={(e) => {
                     edit({ content: e.target.value })
@@ -745,7 +899,7 @@ export default function App() {
                 <div className="md-preview markdown-body">
                   <ReactMarkdown
                     remarkPlugins={[remarkGfm]}
-                    rehypePlugins={[rehypeHighlight]}
+                    rehypePlugins={[rehypeHighlight, rehypeReminders]}
                   >
                     {draft.content || '*Nothing to preview yet.*'}
                   </ReactMarkdown>
@@ -807,6 +961,15 @@ export default function App() {
       />
 
       {toast && <div className="toast">{toast}</div>}
+
+      {tip && (
+        <div
+          className={'tooltip' + (tip.below ? ' below' : '')}
+          style={{ left: tip.x, top: tip.y }}
+        >
+          {tip.text}
+        </div>
+      )}
     </div>
   )
 }

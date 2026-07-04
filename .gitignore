@@ -5,6 +5,9 @@ dev-dist
 *.local
 .DS_Store
 
+# Build artifact — GitHub Pages / CI builds this from source
+xn-note-dist.zip
+
 # Never commit secrets / local env (e.g. VITE_GDRIVE_CLIENT_ID)
 .env
 .env.*

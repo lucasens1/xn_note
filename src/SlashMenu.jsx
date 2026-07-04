@@ -1,9 +1,10 @@
 export default function SlashMenu({ items, index, coords, onSelect, onHover }) {
-  const sheet = !coords
-  const style = coords ? { top: coords.top, left: coords.left } : undefined
+  const style = coords
+    ? { top: coords.top, left: coords.left, width: coords.width }
+    : undefined
   return (
     <div
-      className={'slash-menu' + (sheet ? ' sheet' : '')}
+      className="slash-menu"
       style={style}
       // Keep the textarea focused when interacting with the menu.
       onMouseDown={(e) => e.preventDefault()}

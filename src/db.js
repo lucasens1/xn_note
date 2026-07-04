@@ -21,6 +21,21 @@ db.version(2)
       }),
   )
 
+// v3: reminders — remindAt (when to notify) + remindedAt (when we last notified)
+db.version(3)
+  .stores({
+    notes: '++id, title, folder, updatedAt, createdAt, *tags, remindAt',
+  })
+  .upgrade((tx) =>
+    tx
+      .table('notes')
+      .toCollection()
+      .modify((n) => {
+        if (n.remindAt === undefined) n.remindAt = null
+        if (n.remindedAt === undefined) n.remindedAt = null
+      }),
+  )
+
 // Seed a welcome note the very first time the DB is created.
 db.on('populate', () => {
   const now = Date.now()
@@ -70,6 +85,8 @@ export async function createNote({ folder = '', tags = [] } = {}) {
     content: '',
     folder,
     tags,
+    remindAt: null,
+    remindedAt: null,
     createdAt: now,
     updatedAt: now,
   })

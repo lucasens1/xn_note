@@ -121,7 +121,7 @@
 
 .new-btn {
   background: var(--accent);
-  color: var(--bg-deep);
+  color: var(--on-accent);
   border: 1px solid var(--accent);
   border-radius: 2px;
   padding: 9px 12px;
@@ -279,7 +279,7 @@
 .tagchip.active {
   background: var(--accent);
   border-color: var(--accent);
-  color: var(--bg-deep);
+  color: var(--on-accent);
   font-weight: 700;
   box-shadow: var(--glow);
 }
@@ -297,7 +297,7 @@
 }
 .tag.hash.on {
   background: var(--accent);
-  color: var(--bg-deep);
+  color: var(--on-accent);
   border-color: var(--accent);
   font-weight: 700;
 }
@@ -477,7 +477,7 @@
 }
 .view-switch button.active {
   background: var(--accent);
-  color: var(--bg-deep);
+  color: var(--on-accent);
   font-weight: 700;
 }
 .vs-ic {
@@ -1208,7 +1208,7 @@
 }
 .drive-btn.primary {
   background: var(--accent);
-  color: var(--bg-deep);
+  color: var(--on-accent);
   border-color: var(--accent);
 }
 .drive-btn.primary:hover:not(:disabled) {
@@ -1240,4 +1240,71 @@
   word-break: break-word;
   max-height: 120px;
   overflow-y: auto;
+}
+
+/* ---------- Reminders + theme toggle ---------- */
+.rem-chip {
+  color: var(--amber);
+  border: 1px solid var(--border);
+  border-radius: 2px;
+  padding: 0 5px;
+  font-size: 10px;
+  white-space: nowrap;
+}
+.rem-chip.meta {
+  font-size: 11px;
+  padding: 4px 8px;
+  border-color: var(--border-hi);
+  cursor: default;
+}
+.theme-btn {
+  padding: 4px;
+}
+
+.rem-extra {
+  color: var(--text-dim);
+  font-weight: 400;
+}
+
+/* Styled @time token inside the rendered preview */
+.reminder-token {
+  color: var(--amber);
+  border: 1px solid var(--border-hi);
+  border-radius: 3px;
+  padding: 0 4px;
+  cursor: pointer;
+  white-space: nowrap;
+  font-weight: 600;
+}
+.reminder-token:hover {
+  border-color: var(--amber);
+  background: var(--accent-soft);
+}
+.reminder-token.inactive {
+  color: var(--text-dim);
+  border-color: var(--border);
+  border-style: dashed;
+  text-decoration: line-through;
+  font-weight: 400;
+}
+
+/* ---------- Custom tooltip ---------- */
+.tooltip {
+  position: fixed;
+  z-index: 90;
+  transform: translate(-50%, calc(-100% - 8px));
+  background: var(--bg-deep);
+  color: var(--text);
+  border: 1px solid var(--border-hi);
+  border-radius: 4px;
+  padding: 6px 9px;
+  font-size: 11px;
+  line-height: 1.45;
+  max-width: 240px;
+  text-align: center;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.5), var(--glow);
+  pointer-events: none;
+}
+.tooltip.below {
+  transform: translate(-50%, 8px);
 }

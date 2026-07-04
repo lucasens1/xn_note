@@ -15,9 +15,37 @@
   --danger: #ff4444;
   --glow: 0 0 8px rgba(0, 230, 118, 0.25);
   --glow-hi: 0 0 18px rgba(0, 230, 118, 0.45);
+  --on-accent: #060d09; /* text/icon color on top of an accent fill */
   --mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco,
     Consolas, monospace;
   color-scheme: dark;
+}
+
+/* Light theme — clean, accent stays green but readable on white */
+:root[data-theme='light'] {
+  --bg: #ffffff;
+  --bg-2: #f4f7f4;
+  --bg-3: #e9efe9;
+  --bg-deep: #eef3ee;
+  --text: #16231b;
+  --text-dim: #5c7a64;
+  --border: #d7e2d9;
+  --border-hi: #a9c6af;
+  --accent: #0aa564;
+  --accent-soft: rgba(10, 165, 100, 0.12);
+  --amber: #b45309;
+  --cyan: #0e7490;
+  --danger: #dc2626;
+  --glow: none;
+  --glow-hi: none;
+  --on-accent: #ffffff;
+  color-scheme: light;
+}
+
+/* Scanlines + phosphor sweep only make sense on the dark CRT theme */
+:root[data-theme='light'] body::before,
+:root[data-theme='light'] body::after {
+  display: none;
 }
 
 * {
