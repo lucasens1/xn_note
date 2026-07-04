@@ -4,3 +4,8 @@ dist-ssr
 dev-dist
 *.local
 .DS_Store
+
+# Never commit secrets / local env (e.g. VITE_GDRIVE_CLIENT_ID)
+.env
+.env.*
+!.env.example
