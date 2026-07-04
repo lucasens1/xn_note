@@ -1,0 +1,1 @@
+Drag xn-note-dist.zip (596 KB, already built in the project root) onto https://app.netlify.com/drop — no account needed.

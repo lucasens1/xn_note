@@ -1,0 +1,121 @@
+:root {
+  /* Phosphor terminal palette */
+  --bg: #09100d;
+  --bg-2: #0d1a14; /* panels */
+  --bg-3: #12241a; /* hover */
+  --bg-deep: #060d09; /* insets / terminal blocks */
+  --text: #d4e8d9;
+  --text-dim: #4a7a5a;
+  --border: #1a3d28;
+  --border-hi: #2d6644;
+  --accent: #00e676;
+  --accent-soft: rgba(0, 230, 118, 0.08);
+  --amber: #ffb300;
+  --cyan: #26c6da;
+  --danger: #ff4444;
+  --glow: 0 0 8px rgba(0, 230, 118, 0.25);
+  --glow-hi: 0 0 18px rgba(0, 230, 118, 0.45);
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco,
+    Consolas, monospace;
+  background: var(--bg);
+  color: var(--text);
+  font-size: 13px;
+  -webkit-font-smoothing: antialiased;
+  overscroll-behavior: none;
+}
+
+/* CRT scanlines — kept subtle so notes stay readable */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 2px,
+    rgba(0, 0, 0, 0.05) 2px,
+    rgba(0, 0, 0, 0.05) 4px
+  );
+  pointer-events: none;
+  z-index: 9999;
+}
+
+/* Slow phosphor sweep */
+body::after {
+  content: '';
+  position: fixed;
+  top: -100%;
+  left: 0;
+  right: 0;
+  height: 40%;
+  background: linear-gradient(
+    transparent,
+    rgba(0, 230, 118, 0.018),
+    transparent
+  );
+  animation: scansweep 8s linear infinite;
+  pointer-events: none;
+  z-index: 9998;
+}
+
+@keyframes scansweep {
+  0% {
+    top: -40%;
+  }
+  100% {
+    top: 120%;
+  }
+}
+
+@keyframes blink {
+  50% {
+    opacity: 0;
+  }
+}
+
+button {
+  font-family: inherit;
+  cursor: pointer;
+}
+
+input,
+textarea {
+  font-family: inherit;
+  color: var(--text);
+}
+
+::selection {
+  background: rgba(0, 230, 118, 0.28);
+  color: #eafff2;
+}
+
+/* Green scrollbars */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-hi) transparent;
+}
+*::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+*::-webkit-scrollbar-thumb {
+  background: var(--border-hi);
+}
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
